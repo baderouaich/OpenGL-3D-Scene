@@ -47,12 +47,13 @@ void MainMenuScene::OnImGuiDraw()
 		ImGui::Text(title);
 
 		const auto button_size = ImVec2(win_size.x * 0.30f, 36.0f);
-		[[maybe_unused]] float y = 70.0f, margin_y = 70.0f;
+    float y = 70.0f, margin_y = 70.0f;
 
-		ImGui::SetCursorPos(ImVec2((win_size.x - button_size.x) / 2.0f, y += margin_y));
+		/*ImGui::SetCursorPos(ImVec2((win_size.x - button_size.x) / 2.0f, y += margin_y));
 		if (ImGui::Button("Start", button_size))
 		{
 		}
+    */
 		ImGui::SetCursorPos(ImVec2((win_size.x - button_size.x) / 2.0f, y += margin_y));
 		if (ImGui::Button("Static Triangle", button_size))
 		{

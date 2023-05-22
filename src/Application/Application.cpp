@@ -9,7 +9,7 @@
 
 Application::Application()
 	:
-	m_window(new Window("OpenGL 3D Tutorial", 1280, 960))
+	m_window(new Window("OpenGL 3D Scene", 1280, 960))
 {
 	TRACE_FUNCTION();
 
