@@ -114,7 +114,7 @@ void Models3DScene::OnEvent(Event& event)
     });
 
 
-  dispatcher.Dispatch<KeyPressedEvent>([this](KeyPressedEvent& e) -> bool
+  dispatcher.Dispatch<KeyPressedEvent>([this](const KeyPressedEvent& e) -> bool
    {
         // Toggle menu ESCAPE
        if (e.GetKeyCode() == KeyCode::Escape)
@@ -151,7 +151,10 @@ void Models3DScene::OnUpdate(float dt)
   // Don't do this in OnEvent because it only dispatches key press/release, we want current state of keyboard every frame
   if (Input::IsKeyPressed(KeyCode::W))
   {
-    m_camera->Move(dt, Direction::FORWARD);  //MOVE CAMERA FORWARD (in screen)
+    if(Input::IsKeyPressed(KeyCode::LeftControl)) // Speedup
+      m_camera->Move(dt * 10.0f, Direction::FORWARD);  //MOVE CAMERA FORWARD (in screen)
+    else
+      m_camera->Move(dt, Direction::FORWARD);  //MOVE CAMERA FORWARD (in screen)
   }
   if (Input::IsKeyPressed(KeyCode::S))
   {
@@ -165,11 +168,11 @@ void Models3DScene::OnUpdate(float dt)
   {
     m_camera->Move(dt, Direction::RIGHT); //MOVE CAMERA RIGHT
   }
-  if (Input::IsKeyPressed(KeyCode::Up))
+  if (Input::IsKeyPressed(KeyCode::Up) or Input::IsKeyPressed(KeyCode::Space))
   {
     m_camera->Move(dt, Direction::UP); //MOVE CAMERA UP
   }
-  if (Input::IsKeyPressed(KeyCode::Down))
+  if (Input::IsKeyPressed(KeyCode::Down) or Input::IsKeyPressed(KeyCode::LeftShift))
   {
     m_camera->Move(dt, Direction::DOWN); //MOVE CAMERA Down
   }
@@ -227,24 +230,27 @@ void Models3DScene::OnDraw()
 //  glAssert(glDisable(GL_BLEND));
 }
 
-void Models3DScene::OnImGuiDraw()
-{
-  if(not m_menu_visible) return;
+void Models3DScene::OnImGuiDraw() {
+  if (not m_menu_visible) return;
 
-  ImGui::Begin("3D Model");
+
+  ImGui::Begin("Settings", nullptr, ImGuiWindowFlags_AlwaysAutoResize);
   {
+    ImGui::Text("3D Model");
+    {
 //    static char model_path[PATH_MAX]{};
 //    ImGui::InputTextWithHint("Obj File path", "/path/to/3d/obj/model", model_path, sizeof(model_path));
-    if (ImGui::Button("Load 3D Model (.obj)")) {
-        pfd::open_file of("Select a 3D Model .obj File", MODELS_DIR, { "Object Files", "*.obj *.object"}, pfd::opt::none);
-        if(!of.result().empty()){
-          std::cout << of.result()[0] << std::endl;
+      if (ImGui::Button("Load 3D Model (.obj)")) {
+        pfd::open_file of("Select a 3D Model .obj File", MODELS_DIR, {"Object Files", "*.obj *.object"},
+                          pfd::opt::none);
+        if (!of.result().empty()) {
           std::string obj_filename = of.result()[0];
-          if(fs::exists(obj_filename) && fs::is_regular_file(obj_filename))
-          {
+          if (fs::exists(obj_filename) && fs::is_regular_file(obj_filename)) {
             //why instead not just load mess add mesh to
             std::vector<Vertex> vertices = OBJLoader::LoadOBJ(obj_filename);
-            std::shared_ptr<Mesh> mesh(new Mesh(vertices,{}, m_camera->GetPosition(), glm::vec3(0.f), glm::vec3(0.f), glm::vec3(1.0f)));
+            glm::vec3 in_front_of_camera = m_camera->GetPosition() + glm::vec3(0.0f, 0.0f, -2.0f);
+            std::shared_ptr<Mesh> mesh(
+                    new Mesh(vertices, {}, in_front_of_camera, glm::vec3(0.f), glm::vec3(0.f), glm::vec3(1.0f)));
             m_model->AddMesh(mesh);
 
             /*
@@ -260,56 +266,77 @@ void Models3DScene::OnImGuiDraw()
 
         }
 
-    }
-    ImGui::End();
-  }
-
-
-  ImGui::Begin("Camera");
-  {
-    ImGui::InputFloat3("Camera Position", glm::value_ptr(m_camera->GetPosition()), "%.3f");
-    ImGui::End();
-  }
-
-  ImGui::Begin("Model");
-  {
-    ImGui::InputFloat3("Model Position", glm::value_ptr(m_model->GetPosition()), "%.3f");
-    int i = 0;
-    for(const std::shared_ptr<Mesh>& mesh : m_model->GetMeshes())
-    {
-      i++;
+      }
       ImGui::Separator();
-      ImGui::InputFloat3(("Mesh Position " + std::to_string(i)).data(), glm::value_ptr(mesh->getPosition()), "%.3f");
-      ImGui::SliderFloat3(("Mesh Rotation " + std::to_string(i)).data(), glm::value_ptr(mesh->getRotation()), -180.0f, 180.0f, "%.3f");
+      static glm::vec3 quad_pos{0.0f};
+      static glm::vec3 quad_rot{0.0f};
+      static glm::vec3 quad_scale{1.0f};
+      ImGui::InputFloat3("Quad Position", glm::value_ptr(quad_pos), "%.3f");
+      ImGui::InputFloat3("Quad Rotation", glm::value_ptr(quad_rot), "%.3f");
+      ImGui::InputFloat3("Quad Scale", glm::value_ptr(quad_scale), "%.3f");
+      if (ImGui::Button("Add Quad")) {
+        std::shared_ptr<Mesh> mesh(new Mesh(std::make_shared<Quad>(), quad_pos, glm::vec3(0.f), quad_rot, quad_scale));
+        m_model->AddMesh(mesh);
+      }
+    }
+
+    ImGui::Spacing();
+    ImGui::Separator();
+    ImGui::Spacing();
+
+    ImGui::Text("Camera");
+    {
+      ImGui::InputFloat3("Camera Position", glm::value_ptr(m_camera->GetPosition()), "%.3f");
+    }
+
+    ImGui::Spacing();
+    ImGui::Separator();
+    ImGui::Spacing();
+
+    ImGui::Text("Model");
+    {
+      ImGui::InputFloat3("Model Position", glm::value_ptr(m_model->GetPosition()), "%.3f");
+      int i = 0;
+      for (const std::shared_ptr<Mesh> &mesh: m_model->GetMeshes()) {
+        i++;
+        ImGui::Separator();
+        ImGui::InputFloat3(("Mesh Position " + std::to_string(i)).data(), glm::value_ptr(mesh->getPosition()), "%.3f");
+        ImGui::SliderFloat3(("Mesh Rotation " + std::to_string(i)).data(), glm::value_ptr(mesh->getRotation()), -180.0f,
+                            180.0f, "%.3f");
+
+      }
+    }
+
+    ImGui::Spacing();
+    ImGui::Separator();
+    ImGui::Spacing();
+
+    ImGui::Text("Light");
+    {
+      ImGui::InputFloat3("Light Position", glm::value_ptr(m_point_light->GetPosition()), "%.3f");
+    }
+    ImGui::Spacing();
+    ImGui::Separator();
+    ImGui::Spacing();
+
+    ImGui::Text("Projection");
+    {
+      ImGui::SliderFloat("zNear", &m_zNear, 0.0f, 1000.0f, "%.3f");
+      ImGui::SliderFloat("zFar", &m_zFar, 0.0f, 1000.0f, "%.3f");
+      ImGui::SliderFloat("FOV", &m_fov, 0.0f, 180.0f, "%.3f");
 
     }
 
-    ImGui::End();
-  }
+    ImGui::Spacing();
+    ImGui::Separator();
+    ImGui::Spacing();
 
-  ImGui::Begin("Light");
-  {
-    ImGui::InputFloat3("Light Position", glm::value_ptr(m_point_light->GetPosition()), "%.3f");
-
-    ImGui::End();
-  }
-
-  ImGui::Begin("Projection");
-  {
-    ImGui::SliderFloat("zNear",&m_zNear, 0.0f, 1000.0f, "%.3f");
-    ImGui::SliderFloat("zFar",&m_zFar, 0.0f, 1000.0f, "%.3f");
-    ImGui::SliderFloat("FOV", &m_fov, 0.0f, 180.0f, "%.3f");
-
-    ImGui::End();
-  }
-
-
-  ImGui::Begin("Scene");
-  {
-    if(ImGui::Button("Exit")){
-      this->Exit();
+    ImGui::Text("Scene");
+    {
+      if (ImGui::Button("Exit")) {
+        this->Exit();
+      }
     }
-
     ImGui::End();
   }
 }
@@ -321,3 +348,26 @@ void Models3DScene::OnDestroy()
   m_shader->Unbind();
   ResourceManager::Clear();
 }
+
+#if 0
+Create a class representation of a the following 2D shapes:
+- Rectangle
+- Circle
+- Triangle
+- Line
+
+- Each shape should have the properties needed for it to be constructed.
+for example a rectangle needs position, width, height and color.
+
+- For the position property, create another class representation of a 2D position called Position which contains x and y properties.
+then eash shape must have a Position object which will be allocated in the heap memory and should be properly deallocated when
+the shape goes out of scope.
+
+- Each shape must have a constructor that takes all of the properties and initializes its members with them.
+- Each shape must have a destructor that cleans up the heap allocated memory which was allocated by the shape.
+
+- After you have all your classes ready to use. Test your classes visually in a project that draws all the 2D shapes you made in screen.
+
+- Check if your program has any memory leaks using valgrind (see bottom of __cplusplus/README.md).
+
+#endif

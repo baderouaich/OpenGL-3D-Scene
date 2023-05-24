@@ -60,7 +60,7 @@ public:
 *If you add one more side to
 *	a triangle, you get a
 *	quadrilateral, or a foursided figure.
-*OpenGL�s GL_QUADS
+*OpenGL's GL_QUADS
 *	primitive draws a foursided polygon.
 *This quad has a clockwise
 *	winding.
